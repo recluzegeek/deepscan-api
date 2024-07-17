@@ -1,1 +1,2 @@
-deepscan_api_venv
+deepscan_api_venv/
+__pycache__/
