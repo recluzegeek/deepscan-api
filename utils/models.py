@@ -13,8 +13,8 @@ class Video(Base):
     __tablename__ = "uploaded_videos"
 
     id = Column(UUID, primary_key=True)
-    file_name = Column(String)
-    video_url = Column(String)
+    file_name = Column(String(4096))
+    video_url = Column(String(4096))
     upload_date_time = Column(DateTime(timezone=True), default=func.now())
     
     video_result = relationship('Classification', back_populates="video_source")
@@ -27,7 +27,7 @@ class Classification(Base):
     id = Column(UUID, primary_key=True)
     predicted_class = Column(Integer)
     prediction_probability = Column(Float)
-    video_id = Column(String, ForeignKey('uploaded_videos.id'))
+    video_id = Column(UUID, ForeignKey('uploaded_videos.id'))
     
     video_source = relationship('Video', back_populates="video_result")
     video_report = relationship('AnalysisReport', back_populates="video_source")
@@ -37,7 +37,7 @@ class AnalysisReport(Base):
     __tablename__ = "video_result_reports"
 
     id = Column(UUID, primary_key=True)
-    report_url = Column(String)
-    classification_id = Column(String, ForeignKey('video_results.id'))
+    report_url = Column(String(4096))
+    classification_id = Column(UUID, ForeignKey('video_results.id'))
 
     video_source = relationship('Classification', back_populates="video_report")

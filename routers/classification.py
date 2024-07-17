@@ -1,8 +1,7 @@
-from datetime import datetime
+from fastapi import APIRouter
 
-class DeepfakeDetection:
-    video_id: str
-    frame_count: int
-    face_count: int
-    deepfake_probability: float
-    detection_date: datetime
+router = APIRouter()
+
+@router.get('/class')
+def classification():
+    return {"classification": "classifying video"}
