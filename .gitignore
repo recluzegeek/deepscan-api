@@ -1,3 +1,4 @@
 deepscan_api_venv/
 __pycache__
 storage
+.env

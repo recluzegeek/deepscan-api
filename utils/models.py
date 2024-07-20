@@ -41,3 +41,10 @@ class AnalysisReport(Base):
     classification_id = Column(UUID, ForeignKey('video_results.id'))
 
     video_source = relationship('Classification', back_populates="video_report")
+
+
+class User(Base):
+    __tablename__ = 'users'
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True)
