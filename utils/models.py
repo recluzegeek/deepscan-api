@@ -1,25 +1,20 @@
-# SQLAlchemy models handle database interactions
-# SQLAlchemy models to manage database operations
-
-
 from sqlalchemy import Float, Column, ForeignKey, Integer, String, DateTime, UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-
 from .database import Base
-
 
 class Video(Base):
     __tablename__ = "uploaded_videos"
 
     id = Column(UUID, primary_key=True)
-    file_name = Column(String(4096))
-    video_url = Column(String(4096))
+    filename = Column(String(255))
+    video_storage_path = Column(String(255))
+    status = Column(String(255))
+    user_id = Column(UUID)
     upload_date_time = Column(DateTime(timezone=True), default=func.now())
     
     video_result = relationship('Classification', back_populates="video_source")
     video_report = relationship('AnalysisReport', back_populates="video_source")
-
 
 class Classification(Base):
     __tablename__ = "video_results"
@@ -30,21 +25,15 @@ class Classification(Base):
     video_id = Column(UUID, ForeignKey('uploaded_videos.id'))
     
     video_source = relationship('Video', back_populates="video_result")
-    video_report = relationship('AnalysisReport', back_populates="video_source")
-
+    video_report = relationship('AnalysisReport', back_populates="classification_source")
 
 class AnalysisReport(Base):
     __tablename__ = "video_result_reports"
 
     id = Column(UUID, primary_key=True)
-    report_url = Column(String(4096))
-    classification_id = Column(UUID, ForeignKey('video_results.id'))
+    report_url = Column(String(255))
+    classification_id = Column(UUID, ForeignKey('video_results.id'))  # Existing foreign key
+    video_id = Column(UUID, ForeignKey('uploaded_videos.id'))  # New foreign key
 
-    video_source = relationship('Classification', back_populates="video_report")
-
-
-class User(Base):
-    __tablename__ = 'users'
-
-    id = Column(Integer, primary_key=True, index=True)
-    username = Column(String, unique=True, index=True)
+    video_source = relationship('Video', back_populates="video_report")
+    classification_source = relationship('Classification', back_populates="video_report")
