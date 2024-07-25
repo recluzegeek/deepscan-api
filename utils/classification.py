@@ -25,7 +25,7 @@ class Classification:
         print(f'{datetime.now()} - Creating Classification Instance for {os.path.basename(self.video_path)}')
 
     def preprocess(self, idx, total, image):
-        print(f'{datetime.now()} - Applying Transformations on {os.path.basename(self.video_path)} - {idx + 1} / {total}')
+        print(f'{datetime.now()} - Applying Transformation on {os.path.basename(self.video_path)} - {idx + 1} / {total}')
         return transformations(image)
     
     def infer(self):

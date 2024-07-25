@@ -44,16 +44,28 @@ async def upload_video(user_id: str, uploaded_video: UploadFile, db: Session = D
 
         print(f'{datetime.now()} - Processing Results of {os.path.basename(file_path)}')
         # Process the results as needed
+        all_probabilities = []
         for result in inference_results:
             probabilities = torch.softmax(result, dim=1)
+            all_probabilities.append(probabilities)
             print(probabilities)
+
+        all_probabilities = torch.cat(all_probabilities, dim=0)
+        mean_probabilities = all_probabilities.mean(dim=0)
+
+        final_classification_index = torch.argmax(mean_probabilities).item()
+        final_classification = "real" if final_classification_index == 0 else "fake"
+
+        print(f"Final classification for the video: {final_classification}")
+        print(f"Mean probabilities: {mean_probabilities}")
+
 
         return {
             "details": {
                 "message": response_message,
                 "path": file_path,
-                # "probability": avg_probabilities,
-                # "classification": final_classification
+                "classification": final_classification,
+                "probability": mean_probabilities[0 if final_classification == "real" else 1]
             }
         }
     except Exception as e:
