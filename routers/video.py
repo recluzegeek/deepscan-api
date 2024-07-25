@@ -2,11 +2,16 @@
 # https://www.linode.com/docs/guides/task-queue-celery-rabbitmq/
 # https://nrsyed.com/2018/07/05/multithreading-with-opencv-python-to-improve-video-processing-performance/
 
+import torch
+from ..utils.classification import Classification
+import timm
+
+from datetime import datetime
+
 from fastapi import APIRouter, UploadFile, Depends, HTTPException
 from sqlalchemy.orm import Session
 from ..utils.models import Video
 from ..utils.database import get_db
-from datetime import datetime
 import os
 import shutil
 import uuid
@@ -17,11 +22,37 @@ router = APIRouter()
 async def upload_video(user_id: str, uploaded_video: UploadFile, db: Session = Depends(get_db)):
     try:
         file_path = await save_video(user_id, uploaded_video, db)
+        print(f'{datetime.now()} - Received file: {os.path.basename(file_path)}')
         response_message = f"{uploaded_video.filename} video has been saved at {file_path}"
+        
+        print(f'{datetime.now()} - {os.path.basename(file_path)} has been saved at {file_path}')
+
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        print(f'{datetime.now()} - Loading Model on {os.path.basename(file_path)}')
+
+        model = timm.create_model('swin_base_patch4_window7_224', pretrained=True, num_classes=2)
+        model.load_state_dict(torch.load('/mnt/win/deepscan-api/models/10_epochs.pth', map_location=device))
+
+        print(f'{datetime.now()} - Model weights loaded')
+
+        model.eval()
+
+        classifier = Classification(model, video_path=file_path)
+        print(f'{datetime.now()} - Called Inference on {os.path.basename(file_path)}')
+        inference_results = classifier.infer()
+
+        print(f'{datetime.now()} - Processing Results of {os.path.basename(file_path)}')
+        # Process the results as needed
+        for result in inference_results:
+            probabilities = torch.softmax(result, dim=1)
+            print(probabilities)
+
         return {
             "details": {
                 "message": response_message,
-                "path": file_path
+                "path": file_path,
+                "probabilities": probabilities
             }
         }
     except Exception as e:
@@ -46,11 +77,10 @@ def save_video_in_db(user_id: str, file_path: str, db: Session):
         # Convert user_id to UUID
         user_id_uuid = uuid.UUID(user_id)  # Convert the user_id string to a UUID
 
-        # Generate a new UUID for the video
         new_video = Video(
-            id=uuid.uuid4(),  # Generate a new UUID
-            user_id=user_id_uuid,  # Use the UUID here
-            filename=os.path.basename(file_path),  # Use actual file name
+            id=uuid.uuid4(),
+            user_id=user_id_uuid,
+            filename=os.path.basename(file_path),
             video_storage_path=file_path,
             status='new'
         )

@@ -32,8 +32,8 @@ class AnalysisReport(Base):
 
     id = Column(UUID, primary_key=True)
     report_url = Column(String(255))
-    classification_id = Column(UUID, ForeignKey('video_results.id'))  # Existing foreign key
-    video_id = Column(UUID, ForeignKey('uploaded_videos.id'))  # New foreign key
+    classification_id = Column(UUID, ForeignKey('video_results.id'))
+    video_id = Column(UUID, ForeignKey('uploaded_videos.id'))
 
     video_source = relationship('Video', back_populates="video_report")
     classification_source = relationship('Classification', back_populates="video_report")
