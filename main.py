@@ -1,8 +1,5 @@
 from fastapi import FastAPI
 
-import torch
-import timm
-
 # from .utils import classification
 from .routers import video
 from .utils.database import engine

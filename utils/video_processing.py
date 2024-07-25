@@ -21,21 +21,22 @@ class VideoProcessor:
         print(f'{datetime.now()} - Converting {os.path.basename(self.video_path)} to frames')
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-        while True:
+        while True and frame_count < total_frames / 30:
             ret, frame = cap.read()
             if not ret:
                 break
 
             # Convert the image to grayscale for dlib processing
             print(f'{datetime.now()} - Converting Frame to Grayscale - {frame_count}/{total_frames}')
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            # gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
             # Log the shape and data type of the RGB image
             # print(f'RGB Image shape: {rgb_image.shape}, dtype: {rgb_image.dtype}')
 
             # Detect faces using dlib
             print(f'{datetime.now()} - Detecting faces from frame {frame_count}/{total_frames}')
-            faces = self.detector(gray)
+            faces = self.detector(rgb_frame)
 
             # Check if any faces were detected
             if len(faces) == 0:
@@ -49,7 +50,7 @@ class VideoProcessor:
 
                     # Crop face region from the original RGB image using Pillow
                     print(f'{datetime.now()} - Cropping face regions of {os.path.basename(self.video_path)} - {frame_count}/{total_frames}')
-                    face_img = Image.fromarray(gray[y:y+h, x:x+w])
+                    face_img = Image.fromarray(rgb_frame[y:y+h, x:x+w])
                     face_images.append(face_img)
 
                     # Save the cropped face in RGB format
