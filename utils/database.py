@@ -20,9 +20,3 @@ def get_db():
         yield db
     finally:
         db.close()
-
-
-async def execute_query(query, values=None):
-    async with database:
-        result = await database.fetch_all(query=query, values=values)
-        return result

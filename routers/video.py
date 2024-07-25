@@ -32,7 +32,7 @@ async def upload_video(user_id: str, uploaded_video: UploadFile, db: Session = D
         print(f'{datetime.now()} - Loading Model on {os.path.basename(file_path)}')
 
         model = timm.create_model('swin_base_patch4_window7_224', pretrained=True, num_classes=2)
-        model.load_state_dict(torch.load('/mnt/win/deepscan-api/models/10_epochs.pth', map_location=device))
+        model.load_state_dict(torch.load('/mnt/win/deepscan-api/models/8_epochs.pth', map_location=device))
 
         print(f'{datetime.now()} - Model weights loaded')
 
@@ -43,12 +43,15 @@ async def upload_video(user_id: str, uploaded_video: UploadFile, db: Session = D
         inference_results = classifier.infer()
 
         print(f'{datetime.now()} - Processing Results of {os.path.basename(file_path)}')
-        # Process the results as needed
+
         all_probabilities = []
         for result in inference_results:
             probabilities = torch.softmax(result, dim=1)
             all_probabilities.append(probabilities)
             print(probabilities)
+        
+        # print(f'all_probabilities: {all_probabilities}')
+        # print(f'shape is: {all_probabilities[0].shape}')
 
         all_probabilities = torch.cat(all_probabilities, dim=0)
         mean_probabilities = all_probabilities.mean(dim=0)
@@ -56,7 +59,7 @@ async def upload_video(user_id: str, uploaded_video: UploadFile, db: Session = D
         final_classification_index = torch.argmax(mean_probabilities).item()
         final_classification = "real" if final_classification_index == 0 else "fake"
 
-        print(f"Final classification for the video: {final_classification}")
+        print(f"Final classification for {os.path.basename(file_path)}: {final_classification}")
         print(f"Mean probabilities: {mean_probabilities}")
 
 
@@ -65,7 +68,7 @@ async def upload_video(user_id: str, uploaded_video: UploadFile, db: Session = D
                 "message": response_message,
                 "path": file_path,
                 "classification": final_classification,
-                "probability": mean_probabilities[0 if final_classification == "real" else 1]
+                "probability": mean_probabilities[final_classification_index].item()
             }
         }
     except Exception as e:
