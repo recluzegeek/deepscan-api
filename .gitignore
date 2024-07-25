@@ -1,3 +1,6 @@
 deepscan_api_venv/
 __pycache__
 storage
+.env
+models
+opencv_basics.py
