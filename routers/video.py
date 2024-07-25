@@ -44,15 +44,15 @@ async def upload_video(user_id: str, uploaded_video: UploadFile, db: Session = D
 
         print(f'{datetime.now()} - Processing Results of {os.path.basename(file_path)}')
         # Process the results as needed
-        for result in inference_results:
-            probabilities = torch.softmax(result, dim=1)
-            print(probabilities)
+        # for result in inference_results:
+        #     probabilities = torch.softmax(result, dim=1)
+        #     print(probabilities)
 
         return {
             "details": {
                 "message": response_message,
                 "path": file_path,
-                "probabilities": probabilities
+                # "probabilities": probabilities
             }
         }
     except Exception as e:
@@ -75,7 +75,7 @@ async def save_video(user_id: str, video_file: UploadFile, db: Session):
 def save_video_in_db(user_id: str, file_path: str, db: Session):
     try:
         # Convert user_id to UUID
-        user_id_uuid = uuid.UUID(user_id)  # Convert the user_id string to a UUID
+        user_id_uuid = uuid.UUID(user_id)
 
         new_video = Video(
             id=uuid.uuid4(),
@@ -90,4 +90,4 @@ def save_video_in_db(user_id: str, file_path: str, db: Session):
         db.refresh(new_video)
         return new_video
     except ValueError as e:
-        raise HTTPException(status_code=400, detail="Invalid user ID format.")
+        raise HTTPException(status_code=400, detail="Invalid user ID format. {e}")

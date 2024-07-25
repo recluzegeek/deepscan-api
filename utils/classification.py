@@ -1,4 +1,3 @@
-# import timm
 import torch
 import os
 from torchvision import transforms
@@ -20,7 +19,6 @@ class Classification:
     def __init__(self, model, video_path):
         self.model = model
         self.video_path = video_path
-        # self.video_processor = VideoProcessor(video_path)
         self.face_images = VideoProcessor(self.video_path).extract_frames_and_faces()
         
         print(f'{datetime.now()} - Creating Classification Instance for {os.path.basename(self.video_path)}')
@@ -44,24 +42,3 @@ class Classification:
                 results.append(output)
 
         return results
-
-
-# device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-# model = timm.create_model('swin_base_patch4_window7_224', pretrained=True, num_classes=2)
-# model.load_state_dict(torch.load('/mnt/win/deepscan-api/models/10_epochs.pth')).to(device)
-# model.eval()
-
-# Initialize video processor
-# video_processor = VideoProcessor(video_path='path_to_your_video.mp4')
-# # Extract faces from the video
-# face_images = video_processor.extract_frames_and_faces()
-# # Initialize classification
-# classifier = Classification(model)
-# # Run inference on the extracted faces
-# inference_results = classifier.infer(face_images)
-# # Process the results as needed
-# for result in inference_results:
-#     # Apply softmax or thresholding if necessary
-#     probabilities = torch.softmax(result, dim=1)  # Example for multi-class
-#     print(probabilities)
