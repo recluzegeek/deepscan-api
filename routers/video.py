@@ -17,11 +17,12 @@ router = APIRouter()
 class Data(BaseModel):
     frames_path: str
 
+
 @router.post("/upload")
 async def upload_video(data: Data):
     try:
         frames_path = f'/mnt/win/deepscan-web/storage/app/frames/{data.frames_path}'
-        print(f'{datetime.now()} - Frame path for {data.frames_path} received - {frames_path}')
+        print(f'\n\n{datetime.now()} - Frame path for {data.frames_path} received - {frames_path}')
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -46,9 +47,6 @@ async def upload_video(data: Data):
             all_probabilities.append(probabilities)
             print(probabilities)
         
-        # print(f'all_probabilities: {all_probabilities}')
-        # print(f'shape is: {all_probabilities[0].shape}')
-
         all_probabilities = torch.cat(all_probabilities, dim=0)
         mean_probabilities = all_probabilities.mean(dim=0)
 
@@ -56,7 +54,7 @@ async def upload_video(data: Data):
         final_classification = "real" if final_classification_index == 0 else "fake"
 
         print(f"Final classification for {os.path.basename(data.frames_path)}: {final_classification}")
-        print(f"Mean probabilities: {mean_probabilities}")
+        print(f"Mean probabilities: {mean_probabilities}\n\n")
 
 
         return {
