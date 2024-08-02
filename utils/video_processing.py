@@ -21,8 +21,8 @@ class VideoProcessor:
         print(f'{datetime.now()} - Converting {os.path.basename(self.video_path)} to frames')
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-        # while True and frame_count < total_frames / 80:
-        while True:
+        while True and frame_count < total_frames / 60:
+        # while True:
             ret, frame = cap.read()
             if not ret:
                 break

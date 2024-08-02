@@ -32,10 +32,10 @@ async def upload_video(user_id: str, uploaded_video: UploadFile, db: Session = D
         print(f'{datetime.now()} - Loading Model on {os.path.basename(file_path)}')
 
         model = timm.create_model('swin_base_patch4_window7_224', pretrained=True, num_classes=2)
-        model.load_state_dict(torch.load('/mnt/win/deepscan-api/models/8_epochs.pth', map_location=device))
+        model.load_state_dict(torch.load('/mnt/win/deepscan-api/models/10_epochs.pth', map_location=device))
 
         print(f'{datetime.now()} - Model weights loaded')
-
+        torch.manual_seed(42)
         model.eval()
 
         classifier = Classification(model, video_path=file_path)
