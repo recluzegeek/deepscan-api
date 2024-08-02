@@ -8,28 +8,24 @@ import timm
 
 from datetime import datetime
 
-from fastapi import APIRouter, UploadFile, Depends, HTTPException
-from sqlalchemy.orm import Session
-from ..utils.models import Video
-from ..utils.database import get_db
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 import os
-import shutil
-import uuid
 
 router = APIRouter()
 
+class Data(BaseModel):
+    frames_path: str
+
 @router.post("/upload")
-async def upload_video(user_id: str, uploaded_video: UploadFile, db: Session = Depends(get_db)):
+async def upload_video(data: Data):
     try:
-        file_path = await save_video(user_id, uploaded_video, db)
-        print(f'{datetime.now()} - Received file: {os.path.basename(file_path)}')
-        response_message = f"{uploaded_video.filename} video has been saved at {file_path}"
-        
-        print(f'{datetime.now()} - {os.path.basename(file_path)} has been saved at {file_path}')
+        frames_path = f'/mnt/win/deepscan-web/storage/app/frames/{data.frames_path}'
+        print(f'{datetime.now()} - Frame path for {data.frames_path} received - {frames_path}')
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        print(f'{datetime.now()} - Loading Model on {os.path.basename(file_path)}')
+        print(f'{datetime.now()} - Loading Model on {os.path.basename(frames_path)}')
 
         model = timm.create_model('swin_base_patch4_window7_224', pretrained=True, num_classes=2)
         model.load_state_dict(torch.load('/mnt/win/deepscan-api/models/10_epochs.pth', map_location=device))
@@ -38,11 +34,11 @@ async def upload_video(user_id: str, uploaded_video: UploadFile, db: Session = D
         torch.manual_seed(42)
         model.eval()
 
-        classifier = Classification(model, video_path=file_path)
-        print(f'{datetime.now()} - Called Inference on {os.path.basename(file_path)}')
+        classifier = Classification(model, frames_path=frames_path)
+        print(f'{datetime.now()} - Called Inference on {os.path.basename(frames_path)}')
         inference_results = classifier.infer()
 
-        print(f'{datetime.now()} - Processing Results of {os.path.basename(file_path)}')
+        print(f'{datetime.now()} - Processing Results of {os.path.basename(frames_path)}')
 
         all_probabilities = []
         for result in inference_results:
@@ -59,51 +55,16 @@ async def upload_video(user_id: str, uploaded_video: UploadFile, db: Session = D
         final_classification_index = torch.argmax(mean_probabilities).item()
         final_classification = "real" if final_classification_index == 0 else "fake"
 
-        print(f"Final classification for {os.path.basename(file_path)}: {final_classification}")
+        print(f"Final classification for {os.path.basename(data.frames_path)}: {final_classification}")
         print(f"Mean probabilities: {mean_probabilities}")
 
 
         return {
             "details": {
-                "message": response_message,
-                "path": file_path,
+                "path": data.frames_path,
                 "classification": final_classification,
                 "probability": mean_probabilities[final_classification_index].item()
             }
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-async def save_video(user_id: str, video_file: UploadFile, db: Session):
-    upload_directory = '/mnt/win/deepscan-api/storage/uploaded_videos'
-    os.makedirs(upload_directory, exist_ok=True)
-    file_path = os.path.join(upload_directory, video_file.filename)
-
-    # Save the uploaded video file
-    with open(file_path, 'wb') as video_dst:
-        shutil.copyfileobj(video_file.file, video_dst)
-
-    # Save video metadata in the database
-    save_video_in_db(user_id=user_id, file_path=file_path, db=db)
-
-    return file_path
-
-def save_video_in_db(user_id: str, file_path: str, db: Session):
-    try:
-        # Convert user_id to UUID
-        user_id_uuid = uuid.UUID(user_id)
-
-        new_video = Video(
-            id=uuid.uuid4(),
-            user_id=user_id_uuid,
-            filename=os.path.basename(file_path),
-            video_storage_path=file_path,
-            status='new'
-        )
-        
-        db.add(new_video)
-        db.commit()
-        db.refresh(new_video)
-        return new_video
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail="Invalid user ID format. {e}")

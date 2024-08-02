@@ -4,7 +4,6 @@ from torchvision import transforms
 from .video_processing import VideoProcessor
 from datetime import datetime
 
-# Define the transformations
 transformations = transforms.Compose(
     [
         transforms.Resize((224, 224)),
@@ -16,21 +15,21 @@ transformations = transforms.Compose(
 
 
 class Classification:
-    def __init__(self, model, video_path):
+    def __init__(self, model, frames_path):
         self.model = model
-        self.video_path = video_path
-        self.face_images = VideoProcessor(self.video_path).extract_frames_and_faces()
-        
-        print(f'{datetime.now()} - Creating Classification Instance for {os.path.basename(self.video_path)}')
+        self.frames_path = frames_path
+        self.face_images = VideoProcessor(self.frames_path).extract_faces()
+
+        print(f'{datetime.now()} - Creating Classification Instance for {os.path.basename(self.frames_path)}')
 
     def preprocess(self, idx, total, image):
-        print(f'{datetime.now()} - Applying Transformation on {os.path.basename(self.video_path)} - {idx + 1} / {total}')
+        print(f'{datetime.now()} - Applying Transformation on {os.path.basename(self.frames_path)} - {idx + 1} / {total}')
         return transformations(image)
     
     def infer(self):
         self.model.eval()
         results = []
-        print(f'{datetime.now()} - Running Inference on {os.path.basename(self.video_path)}')
+        print(f'{datetime.now()} - Running Inference on {os.path.basename(self.frames_path)}')
         with torch.no_grad():
             for idx, face in enumerate(self.face_images):
 
