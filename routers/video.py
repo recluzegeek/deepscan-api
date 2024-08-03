@@ -2,24 +2,29 @@
 # https://www.linode.com/docs/guides/task-queue-celery-rabbitmq/
 # https://nrsyed.com/2018/07/05/multithreading-with-opencv-python-to-improve-video-processing-performance/
 
-import torch
-from ..utils.classification import Classification
-import timm
-
-from datetime import datetime
-
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
 import os
+import uuid
+import timm
+import torch
+from datetime import datetime
+from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Depends
+from sqlalchemy.orm import Session
+
+from ..utils.database import get_db
+from ..utils.models import VideoClassification
+from ..utils.classification import Classification
+
 
 router = APIRouter()
 
-class Data(BaseModel):
+class Video(BaseModel):
     frames_path: str
+    video_id: str
 
 
 @router.post("/upload")
-async def upload_video(data: Data):
+async def upload_video(data: Video, db: Session = Depends(get_db)):
     try:
         frames_path = f'/mnt/win/deepscan-web/storage/app/frames/{data.frames_path}'
         print(f'\n\n{datetime.now()} - Frame path for {data.frames_path} received - {frames_path}')
@@ -55,6 +60,8 @@ async def upload_video(data: Data):
 
         print(f"Final classification for {os.path.basename(data.frames_path)}: {final_classification}")
         print(f"Mean probabilities: {mean_probabilities}\n\n")
+        
+        save_results(video_id=data.video_id, predicted_class=final_classification, prediction_probability=mean_probabilities[final_classification_index].item(), db=db)
 
 
         return {
@@ -66,3 +73,24 @@ async def upload_video(data: Data):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+def save_results(video_id: str, predicted_class: str, prediction_probability: float, db: Session):
+    try:
+        print('saving results...')
+        video_uuid = uuid.UUID(video_id)
+        print('before creation video')
+
+        results = VideoClassification(
+            id=uuid.uuid4(),
+            video_id=video_uuid,
+            predicted_class=predicted_class,
+            prediction_probability=prediction_probability
+        )
+        db.add(results)
+        db.commit()
+        db.refresh(results)
+        return results
+    except Exception as e:
+        print(f"Error saving results: {str(e)}") 
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Failed to save results.")
