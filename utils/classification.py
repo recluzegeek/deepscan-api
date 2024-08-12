@@ -14,30 +14,38 @@ transformations = transforms.Compose(
 )
 
 
+from PIL import Image
+
 class Classification:
     def __init__(self, model, frames_path):
         self.model = model
         self.frames_path = frames_path
-        self.face_images = VideoProcessor(self.frames_path).extract_faces()
+        self.video_processor = VideoProcessor(self.frames_path)
+        self.face_images_with_originals = self.video_processor.extract_faces()
 
         print(f'{datetime.now()} - Creating Classification Instance for {os.path.basename(self.frames_path)}')
 
-    def preprocess(self, idx, total, image):
-        print(f'{datetime.now()} - Applying Transformation on {os.path.basename(self.frames_path)} - {idx + 1} / {total}')
-        return transformations(image)
-    
+    def preprocess(self, image):
+        print(f'{datetime.now()} - Applying Transformation on {os.path.basename(self.frames_path)}')
+        
+        # Convert NumPy array to PIL Image
+        image = Image.fromarray(image)
+        
+        preprocessed_image = transformations(image)
+        return preprocessed_image
+        # return image
+
     def infer(self):
         self.model.eval()
         results = []
         print(f'{datetime.now()} - Running Inference on {os.path.basename(self.frames_path)}')
         with torch.no_grad():
-            for idx, face in enumerate(self.face_images):
-
-                input_tensor = self.preprocess(idx, len(self.face_images), face)
+            for face_img, original_frame in self.face_images_with_originals:
+                input_tensor = self.preprocess(face_img)
                 input_tensor = input_tensor.unsqueeze(0)  # Add batch dimension
 
                 # Perform inference
                 output = self.model(input_tensor)
-                results.append(output)
+                results.append((output, input_tensor, original_frame))
 
         return results

@@ -6,10 +6,17 @@ import os
 import uuid
 import timm
 import torch
+import numpy as np
 from datetime import datetime
 from pydantic import BaseModel
-from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
+from fastapi import APIRouter, HTTPException, Depends
+
+import cv2
+
+from pytorch_grad_cam.utils.image import show_cam_on_image
+from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
+from pytorch_grad_cam import GradCAM, HiResCAM, ScoreCAM, GradCAMPlusPlus, AblationCAM, XGradCAM, EigenCAM, FullGrad
 
 from ..utils.database import get_db
 from ..utils.models import VideoClassification
@@ -36,6 +43,11 @@ async def upload_video(data: Video, db: Session = Depends(get_db)):
         model = timm.create_model('swin_base_patch4_window7_224', pretrained=True, num_classes=2)
         model.load_state_dict(torch.load('/mnt/win/deepscan-api/models/10_epochs.pth', map_location=device))
 
+        target_layers = [model.layers[-1].blocks[-1].norm1]
+
+        # Construct the CAM object once, and then re-use it on many images:
+        cam = GradCAM(model=model, target_layers=target_layers)
+
         print(f'{datetime.now()} - Model weights loaded')
         torch.manual_seed(42)
         model.eval()
@@ -47,11 +59,34 @@ async def upload_video(data: Video, db: Session = Depends(get_db)):
         print(f'{datetime.now()} - Processing Results of {os.path.basename(frames_path)}')
 
         all_probabilities = []
-        for result in inference_results:
+
+        for idx, (result, input_tensor, original_frame) in enumerate(inference_results):
             probabilities = torch.softmax(result, dim=1)
             all_probabilities.append(probabilities)
             print(probabilities)
-        
+
+            # Apply GradCAM
+            # final_classification_index = torch.argmax(probabilities).item()
+            # targets = [ClassifierOutputTarget(final_classification_index)]
+            
+            # Generate the GradCAM
+            grayscale_cam = cam(input_tensor=input_tensor)
+            # grayscale_cam = cam(input_tensor=input_tensor, targets=targets)
+            
+            # Ensure the original frame is in the correct format
+            original_frame_float = original_frame.astype(np.float32) / 255.0
+
+            # Resize the GradCAM output to match the original frame size
+            grayscale_cam_resized = cv2.resize(grayscale_cam[0], (original_frame.shape[1], original_frame.shape[0]))
+
+            # Visualize GradCAM on the original frame
+            visualization = show_cam_on_image(original_frame_float, grayscale_cam_resized)  # Use the resized GradCAM image
+
+            # Save the GradCAM-visualized frame
+            save_path = f'/mnt/win/deepscan-api/visualized_frames/{data.video_id}_{idx}.jpg'
+            cv2.imwrite(save_path, visualization)
+
+
         all_probabilities = torch.cat(all_probabilities, dim=0)
         mean_probabilities = all_probabilities.mean(dim=0)
 
@@ -63,7 +98,6 @@ async def upload_video(data: Video, db: Session = Depends(get_db)):
         
         save_results(video_id=data.video_id, predicted_class=final_classification, prediction_probability=mean_probabilities[final_classification_index].item(), db=db)
 
-
         return {
             "details": {
                 "path": data.frames_path,
@@ -74,23 +108,25 @@ async def upload_video(data: Video, db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 def save_results(video_id: str, predicted_class: str, prediction_probability: float, db: Session):
     try:
-        print('saving results...')
-        video_uuid = uuid.UUID(video_id)
-        print('before creation video')
 
         results = VideoClassification(
             id=uuid.uuid4(),
-            video_id=video_uuid,
+            video_id=uuid.UUID(video_id),
             predicted_class=predicted_class,
             prediction_probability=prediction_probability
         )
+
         db.add(results)
         db.commit()
         db.refresh(results)
+
         return results
+    
     except Exception as e:
+
         print(f"Error saving results: {str(e)}") 
         db.rollback()
         raise HTTPException(status_code=500, detail="Failed to save results.")

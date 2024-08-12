@@ -12,16 +12,21 @@ class VideoProcessor:
         print(f'{datetime.now()} - Creating Instance of Video Processing for {os.path.basename(frames_path)}')
         self.frames_path = frames_path
         self.detector = dlib.get_frontal_face_detector()
+        self.original_frames = self.load_original_frames()  # Load original frames
 
+    def load_original_frames(self):
+        original_frames = []
+        frame_paths = sorted(glob.glob(f'{self.frames_path}*.jpg'))  # Ensure sorted order
+        for frame_path in frame_paths:
+            frame = Image.open(frame_path)
+            original_frames.append(np.array(frame))  # Store as NumPy array
+        return original_frames
 
-    def extract_faces(self, output_dir='frames'):
-        
+    def extract_faces(self):
         face_images = []
-        # get all video frames
-        frames = glob.glob(f'{self.frames_path}*.jpg')
+        frames = sorted(glob.glob(f'{self.frames_path}*.jpg'))  # Ensure sorted order
 
         for idx, frame in enumerate(frames):
-            
             image = Image.open(frame)
             rgb_frame = cv2.cvtColor(np.array(image), cv2.COLOR_BGR2RGB)
 
@@ -39,9 +44,9 @@ class VideoProcessor:
                     w = face.right() - x
                     h = face.bottom() - y
 
-                    # Crop face region from the original RGB image using Pillow
+                    # Crop face region from the original RGB image using NumPy
                     print(f'{datetime.now()} - Cropping face regions of {os.path.basename(self.frames_path)} - {idx + 1}/{len(frames)}')
-                    face_img = Image.fromarray(rgb_frame[y:y+h, x:x+w])
-                    face_images.append(face_img)
+                    face_img = rgb_frame[y:y+h, x:x+w]  # Use NumPy array for face image
+                    face_images.append((face_img, rgb_frame))  # Store both face and original frame
 
         return face_images
