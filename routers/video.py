@@ -69,13 +69,29 @@ async def upload_video(data: Video, db: Session = Depends(get_db)):
         all_probabilities = []
 
         for idx, (face_img, original_frame) in enumerate(classifier.face_images_with_original_frames):
-            # probabilities = torch.softmax(result, dim=1)
-            # all_probabilities.append(probabilities)
-            # print(probabilities)
 
             # check whether the face_img is an PIL Image or Numpy Array
             print(type(face_img))
             print(type(original_frame))
+            print(original_frame.shape)
+
+            # Get face coords
+            x, y, w, h = classifier.video_processor.face_coordinates[idx]
+            print(x, y, w, h)
+
+            # Draw border around the original_frame using x, y, w, h
+            # cv2.rectangle(original_frame, (y,y+h), (x,x+w), (0, 255, 0), 2)
+            cv2.imwrite('original_frame.jpg', original_frame)
+            # return
+            image = cv2.rectangle(original_frame, (x, y), (x + w, y + h), (36,255,12), 1)
+            captioned_image = cv2.putText(image, 'Detected Face', (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36,255,12), 2)
+            # cv2.imshow('captioned_image.jpg', captioned_image)
+            cv2.imwrite('captioned_image.jpg', captioned_image)
+
+            return
+
+
+
 
             # rgb_img = cv2.imread(face_img, 1)[:, :, ::-1]
             rgb_img = cv2.resize(face_img, (224, 224))
