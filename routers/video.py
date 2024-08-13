@@ -15,13 +15,11 @@ from fastapi import APIRouter, HTTPException, Depends
 import cv2
 
 from pytorch_grad_cam.utils.image import show_cam_on_image, preprocess_image
-from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
-from pytorch_grad_cam import GradCAM, XGradCAM
+from pytorch_grad_cam import GradCAM
 
 from ..utils.database import get_db
 from ..utils.models import VideoClassification
 from ..utils.classification import Classification
-from PIL import Image
 
 router = APIRouter()
 
@@ -80,20 +78,20 @@ async def upload_video(data: Video, db: Session = Depends(get_db)):
             print(x, y, w, h)
 
             # Draw border around the original_frame using x, y, w, h
-            # cv2.rectangle(original_frame, (y,y+h), (x,x+w), (0, 255, 0), 2)
             cv2.imwrite('original_frame.jpg', original_frame)
-            # return
+            cv2.imwrite('cropped_face.jpg', face_img)
+
             image = cv2.rectangle(original_frame, (x, y), (x + w, y + h), (36,255,12), 1)
-            captioned_image = cv2.putText(image, 'Detected Face', (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36,255,12), 2)
-            # cv2.imshow('captioned_image.jpg', captioned_image)
-            cv2.imwrite('captioned_image.jpg', captioned_image)
+            captioned_image = cv2.putText(image, 'Localized Domain', (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+            cv2.imwrite('detected_face_in_original_frame.jpg', captioned_image)
 
-            return
+            # Get the height, width of the cropped face image, so we've to 
+            # resize the gradcam visualized image back to the original shape
+            # before overlaying onto the original frame
 
+            height, width, channels = face_img.shape
+            print(f'Original Cropped Face Dimensions...{face_img.shape}')
 
-
-
-            # rgb_img = cv2.imread(face_img, 1)[:, :, ::-1]
             rgb_img = cv2.resize(face_img, (224, 224))
             rgb_img = np.float32(rgb_img) / 255
             input_tensor = preprocess_image(rgb_img, mean=[0.5, 0.5, 0.5],
@@ -108,75 +106,36 @@ async def upload_video(data: Video, db: Session = Depends(get_db)):
             grayscale_cam = grayscale_cam[0, :]
 
             cam_image = show_cam_on_image(rgb_img, grayscale_cam)
+            cam_image_resized = cv2.resize(cam_image, (width, height))
+
+            cv2.imwrite('cam_image_original.jpg', cam_image)
+            cv2.imwrite('cam_image_resized.jpg', cam_image_resized)
+
+            # Overlay the cam_image_resized on the original_frame
+            # on the face coords of the original_frame
+
+            # Select the original_frame region outside of the face
+            # so, we can overlay
+
+            # Create a mask for overlaying
+            shapes = np.zeros_like(original_frame, np.uint8)
+
+            # Overlay the resized CAM image onto the original frame
+            shapes[y:y+h, x:x+w] = cam_image_resized
+
+            alpha = 0.4
+            mask = shapes.astype(np.uint8)
+
+            # Overlay the cam_image_resized on the original_frame
+            original_frame = cv2.addWeighted(original_frame, alpha, mask, 1 - alpha, 0)
+
+            # Save the final visualized frame
+            cv2.imwrite('visualized_frame.jpg', original_frame)
+            # overlay = cv2.addWeighted(original_frame[y:y+h, x:x+w], 0.5, cam_image_resized, 0.5,0 )
+            # original_frame[y:y+h, x:x+w] = overlay
 
             print(cam.outputs)
             all_probabilities.append(cam.outputs)
-
-            # Save the result
-            save_path = f'/mnt/win/deepscan-api/visualized_frames/{data.video_id}_{idx}.jpg'
-            cv2.imwrite(save_path, cam_image)
-
-
-            # final_classification_index = torch.argmax(probabilities).item()
-            # targets = [ClassifierOutputTarget(final_classification_index)]
-
-            # Generate the GradCAM
-            # grayscale_cam = cam(input_tensor=input_tensor, targets=targets)
-
-            # # https://github.com/jacobgil/pytorch-grad-cam/issues/365
-            # #input_tensor has shape (1, 3, 224, 224)
-            # input_tensor = np.array(input_tensor)
-            # input_tensor_float = input_tensor.squeeze(0).transpose(1, 2, 0).astype(np.float32) / 255.0
-
-            # print("Input Tensor Shape after processing:", input_tensor_float.shape)  # Should print (224, 224, 3)
-
-            # # Assuming grayscale_cam is in the shape of (1, 224, 224)
-            # grayscale_cam = grayscale_cam.squeeze(0)  # Now shape is (224, 224)
-            # print("Grayscale CAM Shape after squeeze:", grayscale_cam.shape)
-
-            # # Ensure values are between 0 and 1
-            # grayscale_cam = np.clip(grayscale_cam, 0, 1)
-
-            # # Repeat grayscale_cam to match the input image shape
-            # grayscale_cam = np.repeat(grayscale_cam[..., np.newaxis], 3, axis=-1)  # Shape becomes (224, 224, 3)
-            # print("Grayscale CAM Shape after repeat:", grayscale_cam.shape)
-
-            # visualization = show_cam_on_image(input_tensor_float, grayscale_cam)
-
-            # print('after visualization')
-
-
-
-                # Ensure the original frame is in the correct format
-                # original_frame_float = original_frame.astype(np.float32) / 255.0
-
-                # Get the face coordinates
-                # x, y, w, h = classifier.video_processor.face_coordinates[idx]
-
-                # Resize the GradCAM output to match the face region size
-                # grayscale_cam_resized = cv2.resize(grayscale_cam[0], (w, h))  # Resize to the width and height of the face region
-
-            # # Normalize the GradCAM output to [0, 1]
-            # grayscale_cam_resized = np.clip(grayscale_cam_resized, 0, 1)  # Ensure values are in [0, 1]
-
-            # # Convert the normalized GradCAM output to a format suitable for visualization
-            # grayscale_cam_resized = (grayscale_cam_resized - np.min(grayscale_cam_resized)) / (np.max(grayscale_cam_resized) - np.min(grayscale_cam_resized) + 1e-10)  # Normalize to [0, 1]
-
-            # # Overlay the GradCAM visualization back onto the original frame
-            # overlay = show_cam_on_image(original_frame_float[y:y+h, x:x+w], grayscale_cam_resized)  # Overlay on the cropped area
-
-            # # Check the overlay output
-            # print(f"Overlay shape: {overlay.shape}")
-            # print(f"Overlay values: {overlay}")
-
-            # # Place the overlay back into the original frame
-            # original_frame_float[y:y+h, x:x+w] = overlay
-
-            # # Save the GradCAM-visualized frame
-            # save_path = f'/mnt/win/deepscan-api/visualized_frames/{data.video_id}_{idx}.jpg'
-            # cv2.imwrite(save_path, overlay)
-            # cv2.imwrite(save_path, original_frame_float * 255)  # Convert back to [0, 255] range for saving
-
 
         all_probabilities = torch.cat(all_probabilities, dim=0)
         mean_probabilities = all_probabilities.mean(dim=0)

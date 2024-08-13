@@ -46,7 +46,7 @@ class VideoProcessor:
                     self.face_coordinates[idx] = [x, y, w, h]
 
                     print(f'{datetime.now()} - Cropping face regions of {os.path.basename(self.frames_path)} - {idx + 1}/{len(self.original_frames)}')
-                    # convert cropped face back to PIL image from numpy array
+
                     face_img = rgb_frame[y:y+h, x:x+w]
                     face_images.append((face_img,rgb_frame))
 
