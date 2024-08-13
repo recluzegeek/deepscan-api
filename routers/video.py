@@ -14,7 +14,7 @@ from fastapi import APIRouter, HTTPException, Depends
 
 import cv2
 
-from pytorch_grad_cam.utils.image import show_cam_on_image
+from pytorch_grad_cam.utils.image import show_cam_on_image, preprocess_image
 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
 from pytorch_grad_cam import GradCAM, XGradCAM
 
@@ -28,6 +28,16 @@ router = APIRouter()
 class Video(BaseModel):
     frames_path: str
     video_id: str
+
+def reshape_transform(tensor, height=7, width=7):
+    result = tensor.reshape(tensor.size(0),
+                            height, width, tensor.size(2))
+
+    # Bring the channels to the first dimension,
+    # like in CNNs.
+    result = result.transpose(2, 3).transpose(1, 2)
+    return result
+
 
 
 @router.post("/upload")
@@ -44,56 +54,81 @@ async def upload_video(data: Video, db: Session = Depends(get_db)):
         model.load_state_dict(torch.load('/mnt/win/deepscan-api/models/10_epochs.pth', map_location=device))
 
         target_layers = [model.layers[-1].blocks[-1].norm2]
-        cam = GradCAM(model=model, target_layers=target_layers)
+        cam = GradCAM(model=model, target_layers=target_layers, reshape_transform=reshape_transform)
 
         print(f'{datetime.now()} - Model weights loaded')
-        torch.manual_seed(42)
+        # torch.manual_seed(42)
         model.eval()
 
         classifier = Classification(model, frames_path=frames_path)
         print(f'{datetime.now()} - Called Inference on {os.path.basename(frames_path)}')
-        inference_results = classifier.infer()
+        # inference_results = classifier.infer()
 
         print(f'{datetime.now()} - Processing Results of {os.path.basename(frames_path)}')
 
         all_probabilities = []
 
-        for idx, (result, input_tensor, original_frame) in enumerate(inference_results):
-            probabilities = torch.softmax(result, dim=1)
-            all_probabilities.append(probabilities)
-            print(probabilities)
+        for idx, (face_img, original_frame) in enumerate(classifier.face_images_with_original_frames):
+            # probabilities = torch.softmax(result, dim=1)
+            # all_probabilities.append(probabilities)
+            # print(probabilities)
 
-            final_classification_index = torch.argmax(probabilities).item()
-            targets = [ClassifierOutputTarget(final_classification_index)]
+            # check whether the face_img is an PIL Image or Numpy Array
+            print(type(face_img))
+            print(type(original_frame))
 
-            # Generate the GradCAM
-            grayscale_cam = cam(input_tensor=input_tensor, targets=targets)
+            # rgb_img = cv2.imread(face_img, 1)[:, :, ::-1]
+            rgb_img = cv2.resize(face_img, (224, 224))
+            rgb_img = np.float32(rgb_img) / 255
+            input_tensor = preprocess_image(rgb_img, mean=[0.5, 0.5, 0.5],
+                                    std=[0.5, 0.5, 0.5])
 
-            # https://github.com/jacobgil/pytorch-grad-cam/issues/365
-            #input_tensor has shape (1, 3, 224, 224)
-            input_tensor = np.array(input_tensor)
-            input_tensor_float = input_tensor.squeeze(0).transpose(1, 2, 0).astype(np.float32) / 255.0
+            grayscale_cam = cam(input_tensor=input_tensor,
+                        targets=None,
+                        eigen_smooth=True,
+                        aug_smooth=True)
 
-            print("Input Tensor Shape after processing:", input_tensor_float.shape)  # Should print (224, 224, 3)
+            # Here grayscale_cam has only one image in the batch
+            grayscale_cam = grayscale_cam[0, :]
 
-            # Assuming grayscale_cam is in the shape of (1, 224, 224)
-            grayscale_cam = grayscale_cam.squeeze(0)  # Now shape is (224, 224)
-            print("Grayscale CAM Shape after squeeze:", grayscale_cam.shape)
+            cam_image = show_cam_on_image(rgb_img, grayscale_cam)
 
-            # Ensure values are between 0 and 1
-            grayscale_cam = np.clip(grayscale_cam, 0, 1)
-
-            # Repeat grayscale_cam to match the input image shape
-            grayscale_cam = np.repeat(grayscale_cam[..., np.newaxis], 3, axis=-1)  # Shape becomes (224, 224, 3)
-            print("Grayscale CAM Shape after repeat:", grayscale_cam.shape)
-
-            visualization = show_cam_on_image(input_tensor_float, grayscale_cam)
-
-            print('after visualization')
+            print(cam.outputs)
+            all_probabilities.append(cam.outputs)
 
             # Save the result
             save_path = f'/mnt/win/deepscan-api/visualized_frames/{data.video_id}_{idx}.jpg'
-            cv2.imwrite(save_path, (visualization * 255).astype(np.uint8))
+            cv2.imwrite(save_path, cam_image)
+
+
+            # final_classification_index = torch.argmax(probabilities).item()
+            # targets = [ClassifierOutputTarget(final_classification_index)]
+
+            # Generate the GradCAM
+            # grayscale_cam = cam(input_tensor=input_tensor, targets=targets)
+
+            # # https://github.com/jacobgil/pytorch-grad-cam/issues/365
+            # #input_tensor has shape (1, 3, 224, 224)
+            # input_tensor = np.array(input_tensor)
+            # input_tensor_float = input_tensor.squeeze(0).transpose(1, 2, 0).astype(np.float32) / 255.0
+
+            # print("Input Tensor Shape after processing:", input_tensor_float.shape)  # Should print (224, 224, 3)
+
+            # # Assuming grayscale_cam is in the shape of (1, 224, 224)
+            # grayscale_cam = grayscale_cam.squeeze(0)  # Now shape is (224, 224)
+            # print("Grayscale CAM Shape after squeeze:", grayscale_cam.shape)
+
+            # # Ensure values are between 0 and 1
+            # grayscale_cam = np.clip(grayscale_cam, 0, 1)
+
+            # # Repeat grayscale_cam to match the input image shape
+            # grayscale_cam = np.repeat(grayscale_cam[..., np.newaxis], 3, axis=-1)  # Shape becomes (224, 224, 3)
+            # print("Grayscale CAM Shape after repeat:", grayscale_cam.shape)
+
+            # visualization = show_cam_on_image(input_tensor_float, grayscale_cam)
+
+            # print('after visualization')
+
 
 
                 # Ensure the original frame is in the correct format
