@@ -10,31 +10,30 @@ from datetime import datetime
 class VideoProcessor:
     def __init__(self, frames_path):
         print(f'{datetime.now()} - Creating Instance of Video Processing for {os.path.basename(frames_path)}')
+        self.face_coordinates = {}
         self.frames_path = frames_path
         self.detector = dlib.get_frontal_face_detector()
-        self.original_frames = self.load_original_frames()  # Load original frames
+        self.original_frames = self.load_original_frames()
 
     def load_original_frames(self):
         original_frames = []
-        frame_paths = sorted(glob.glob(f'{self.frames_path}*.jpg'))  # Ensure sorted order
+        frame_paths = sorted(glob.glob(f'{self.frames_path}*.jpg'))
         for frame_path in frame_paths:
             frame = Image.open(frame_path)
-            original_frames.append(np.array(frame))  # Store as NumPy array
+            original_frames.append(np.array(frame))
         return original_frames
 
     def extract_faces(self):
         face_images = []
-        frames = sorted(glob.glob(f'{self.frames_path}*.jpg'))  # Ensure sorted order
 
-        for idx, frame in enumerate(frames):
-            image = Image.open(frame)
-            rgb_frame = cv2.cvtColor(np.array(image), cv2.COLOR_BGR2RGB)
+        for idx, rgb_frame in enumerate(self.original_frames):
 
-            # Detect faces using dlib
-            print(f'{datetime.now()} - Detecting faces from frame {idx}/{len(frames)}')
+            rgb_frame = cv2.cvtColor(rgb_frame, cv2.COLOR_BGR2RGB)
+
+            # Face Detection
+            print(f'{datetime.now()} - Detecting faces from frame {idx}/{len(self.original_frames)}')
             faces = self.detector(rgb_frame)
 
-            # Check if any faces were detected
             if len(faces) == 0:
                 print(f'No faces detected in frame {idx}.')
             else:
@@ -43,10 +42,12 @@ class VideoProcessor:
                     y = face.top()
                     w = face.right() - x
                     h = face.bottom() - y
+                    # store face coordinates for GRADCAM visualization
+                    self.face_coordinates[idx] = [x, y, w, h]
 
-                    # Crop face region from the original RGB image using NumPy
-                    print(f'{datetime.now()} - Cropping face regions of {os.path.basename(self.frames_path)} - {idx + 1}/{len(frames)}')
-                    face_img = rgb_frame[y:y+h, x:x+w]  # Use NumPy array for face image
-                    face_images.append((face_img, rgb_frame))  # Store both face and original frame
+                    print(f'{datetime.now()} - Cropping face regions of {os.path.basename(self.frames_path)} - {idx + 1}/{len(self.original_frames)}')
+                    # convert cropped face back to PIL image from numpy array
+                    face_img = Image.fromarray(rgb_frame[y:y+h, x:x+w])
+                    face_images.append((face_img,rgb_frame))
 
         return face_images
