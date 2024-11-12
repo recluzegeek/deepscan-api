@@ -11,21 +11,24 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from fastapi import APIRouter, HTTPException, Depends
 
+from uuid import UUID
 from pytorch_grad_cam import GradCAM
 
 from ..utils.database import get_db
-from ..utils.models import VideoClassification
+from ..utils.models import Video
 from ..utils.classification import Classification
 
 router = APIRouter()
 
-class Video(BaseModel):
+class VideoModel(BaseModel):
     frames_path: str
     video_id: str
 
 @router.post("/upload")
-async def upload_video(data: Video, db: Session = Depends(get_db)):
+async def upload_video(data: VideoModel, db: Session = Depends(get_db)):
     try:
+        video_id = UUID(data.video_id)  # change back to uuid from string
+        update_video_status(video_id = video_id, video_status = 'processing', db = db)
         frames_path = f'/mnt/win/deepscan-web/storage/app/frames/{data.frames_path}'
         print(f'\n\n{datetime.now()} - Frame path for {data.frames_path} received - {frames_path}')
 
@@ -62,7 +65,7 @@ async def upload_video(data: Video, db: Session = Depends(get_db)):
         print(f"Final classification for {os.path.basename(data.frames_path)}: {final_classification}")
         print(f"Mean probabilities: {mean_probabilities}\n\n")
         
-        save_results(video_id=data.video_id, predicted_class=final_classification, prediction_probability=mean_probabilities[final_classification_index].item(), db=db)
+        update_video_status(video_id=data.video_id, predicted_class=final_classification, prediction_probability=mean_probabilities[final_classification_index].item(), db=db)
 
         return {
             "details": {
@@ -75,33 +78,14 @@ async def upload_video(data: Video, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-def save_results(video_id: str, predicted_class: str, prediction_probability: float, db: Session):
-    try:
-
-        results = VideoClassification(
-            id=uuid.uuid4(),
-            video_id=uuid.UUID(video_id),
-            predicted_class=predicted_class,
-            prediction_probability=prediction_probability
-        )
-
-        db.add(results)
-        db.commit()
-        db.refresh(results)
-
-        return results
-    
-    except Exception as e:
-
-        print(f"Error saving results: {str(e)}") 
-        db.rollback()
-        raise HTTPException(status_code=500, detail="Failed to save results.")
+def update_video_status(video_id: str, video_status: UUID, db: Session):
+    video = db.query(Video).filter(Video.id == video_id).first()
+    video.video_status = video_status
+    db.commit()
 
 def reshape_transform(tensor, height=7, width=7):
     result = tensor.reshape(tensor.size(0),
                             height, width, tensor.size(2))
 
-    # Bring the channels to the first dimension,
-    # like in CNNs.
     result = result.transpose(2, 3).transpose(1, 2)
     return result
