@@ -6,6 +6,7 @@ import os
 import uuid
 import timm
 import torch
+import requests
 from datetime import datetime
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -67,6 +68,8 @@ async def upload_video(data: VideoModel, db: Session = Depends(get_db)):
         
         update_video_status(video_id, 'completed', db)
         update_video_results(video_id, final_classification, mean_probabilities[final_classification_index].item(), db)
+        response = send_inference_completion_notification(video_id)
+        print(response.json(), response.status_code)
 
         return {
             "details": {
@@ -91,6 +94,11 @@ def update_video_results(video_id: str, result: str, probability: float, db: Ses
 
 def get_video(video_id: str, db: Session):
     return db.query(Video).filter(Video.id == video_id).first()
+
+def send_inference_completion_notification(video_id: str):
+    url = f'http://10.211.0.115:8000/inference/{video_id}'
+    response = requests.post(url)
+    return response
 
 def reshape_transform(tensor, height=7, width=7):
     result = tensor.reshape(tensor.size(0),
