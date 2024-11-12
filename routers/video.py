@@ -65,7 +65,8 @@ async def upload_video(data: VideoModel, db: Session = Depends(get_db)):
         print(f"Final classification for {os.path.basename(data.frames_path)}: {final_classification}")
         print(f"Mean probabilities: {mean_probabilities}\n\n")
         
-        update_video_status(video_id=data.video_id, predicted_class=final_classification, prediction_probability=mean_probabilities[final_classification_index].item(), db=db)
+        update_video_status(video_id, 'completed', db)
+        update_video_results(video_id, final_classification, mean_probabilities[final_classification_index].item(), db)
 
         return {
             "details": {
@@ -79,9 +80,17 @@ async def upload_video(data: VideoModel, db: Session = Depends(get_db)):
 
 
 def update_video_status(video_id: str, video_status: UUID, db: Session):
-    video = db.query(Video).filter(Video.id == video_id).first()
-    video.video_status = video_status
+    get_video(video_id, db).video_status = video_status
     db.commit()
+
+def update_video_results(video_id: str, result: str, probability: float, db: Session):
+    video = get_video(video_id, db)
+    video.predicted_class = result
+    video.prediction_probability = probability
+    db.commit()
+
+def get_video(video_id: str, db: Session):
+    return db.query(Video).filter(Video.id == video_id).first()
 
 def reshape_transform(tensor, height=7, width=7):
     result = tensor.reshape(tensor.size(0),
