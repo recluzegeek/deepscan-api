@@ -1,0 +1,15 @@
+api:
+  host: "0.0.0.0"
+  port: 8001
+
+laravel:
+  base_url: "http://192.168.0.172:8000"
+  inference_endpoint: "/inference/{video_id}"
+
+model:
+  name: "swin_base_patch4_window7_224"
+  weights_path: "/mnt/win/deepscan-api/models/10_epochs.pth"
+  num_classes: 2
+
+paths:
+  frames_base_path: "/mnt/win/deepscan-web/storage/app/frames"
