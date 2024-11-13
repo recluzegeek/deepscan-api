@@ -1,5 +1,7 @@
 # TODO - Sign the request issued by FastAPI to Laravel Endpoint
 
+import json
+
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -29,7 +31,7 @@ async def upload_video(data: VideoModel, db: Session = Depends(get_db)):
         update_video_results(video_id, classification, probability, db)
         
         response = video_service.notify_completion(str(video_id))
-        print(response.json(), response.status_code)
+        print(json.dumps(response.json(), indent=2), f"\nStatus Code: {response.status_code}")
 
         return {
             "details": {

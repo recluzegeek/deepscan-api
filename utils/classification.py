@@ -1,84 +1,139 @@
 import os
 import cv2
 import numpy as np
+import torch
 from datetime import datetime
 from .video_processing import VideoProcessor
 from pytorch_grad_cam.utils.image import show_cam_on_image, preprocess_image
-
+import time
 
 class Classification:
     def __init__(self, model, frames_path, cam):
+        start_time = time.time()
         self.model = model
         self.frames_path = frames_path
         self.cam = cam
         self.video_processor = VideoProcessor(self.frames_path)
+        
+        # Create visualized directory if it doesn't exist
+        self.visualized_dir = os.path.join(os.path.dirname(self.frames_path), 'visualized')
+        os.makedirs(self.visualized_dir, exist_ok=True)
+        
+        print(f'{datetime.now()} - Extracting faces...')
         self.face_images_with_original_frames = self.video_processor.extract_faces()
+        print(f'{datetime.now()} - Face extraction completed in {time.time() - start_time:.2f} seconds')
+
+        self.input_size = (224, 224)
+        self.mean = np.array([0.5, 0.5, 0.5])
+        self.std = np.array([0.5, 0.5, 0.5])
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        
+        # Move model to GPU if available
+        self.model = self.model.to(self.device)
 
         print(f'{datetime.now()} - Creating Classification Instance for {os.path.basename(self.frames_path)}')
-
+        print(f'Using device: {self.device}')
+        print(f'Initialization completed in {time.time() - start_time:.2f} seconds')
 
     def infer(self):
-        self.model.eval()
-        results = []
-        print(f'{datetime.now()} - Running Inference on {os.path.basename(self.frames_path)}')
+        try:
+            total_start_time = time.time()
+            self.model.eval()
+            results = []
+            print(f'{datetime.now()} - Running Inference on {os.path.basename(self.frames_path)}')
 
-        for idx, (face_img, original_frame) in enumerate(self.face_images_with_original_frames):
+            batch_size = 8
+            face_batches = [self.face_images_with_original_frames[i:i + batch_size] 
+                        for i in range(0, len(self.face_images_with_original_frames), batch_size)]
 
-            # Get face coords
-            x, y, w, h = self.video_processor.face_coordinates[idx]
-            print(x, y, w, h)
+            print(f'{datetime.now()} - Created {len(face_batches)} batches of size {batch_size}')
             
-            # Draw border around the original_frame using x, y, w, h
-            # print(f'{datetime.now()} - Writing Original Frame')
-            # cv2.imwrite('original_frame.jpg', original_frame)
-            # print(f'{datetime.now()} - Writing Cropped Face Frame')
-            # cv2.imwrite('cropped_face.jpg', face_img)
-            image = cv2.rectangle(original_frame, (x, y), (x + w, y + h), (36,255,12), 1)
-            # captioned_image = cv2.putText(image, 'Localized Domain', (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-            # print(f'{datetime.now()} - Writing Detected Face in original Frame')
-            # cv2.imwrite('detected_face_in_original_frame.jpg', captioned_image)
+            for batch_idx, batch in enumerate(face_batches):
+                batch_start_time = time.time()
+                print(f'{datetime.now()} - Processing batch {batch_idx + 1}/{len(face_batches)}')
+                input_tensors = []
+                
+                # Process each face in the batch
+                tensor_prep_start = time.time()
+                for face_idx, (face_img, rgb_frame, frame_path) in enumerate(batch):
+                    try:
+                        rgb_img = cv2.resize(face_img, self.input_size)
+                        rgb_img = np.float32(rgb_img) / 255
+                        input_tensor = preprocess_image(rgb_img, mean=self.mean, std=self.std)
+                        input_tensors.append(input_tensor)
+                    except Exception as e:
+                        print(f'{datetime.now()} - Error processing face {face_idx}: {str(e)}')
+                        raise
+                print(f'{datetime.now()} - Tensor preparation took {time.time() - tensor_prep_start:.2f} seconds')
 
-            # Get the height, width of the cropped face image, so we've to 
-            # resize the gradcam visualized image back to the original shape
-            # before overlaying onto the original frame
+                try:
+                    # Batch processing
+                    gradcam_start = time.time()
+                    batch_tensor = np.concatenate(input_tensors, axis=0)
+                    batch_tensor = torch.from_numpy(batch_tensor).to(self.device)
+                    batch_tensor = batch_tensor.requires_grad_(True)
+                    
+                    with torch.enable_grad():
+                        grayscale_cams = self.cam(input_tensor=batch_tensor,
+                                                targets=None,
+                                                eigen_smooth=True,
+                                                aug_smooth=True)
+                    print(f'{datetime.now()} - GradCAM processing took {time.time() - gradcam_start:.2f} seconds')
 
-            height, width = face_img.shape[:2]
-            # print(f'Original Cropped Face Dimensions...{face_img.shape}')
-            rgb_img = cv2.resize(face_img, (224, 224))
-            rgb_img = np.float32(rgb_img) / 255
-            input_tensor = preprocess_image(rgb_img, mean=[0.5, 0.5, 0.5],
-                                    std=[0.5, 0.5, 0.5])
-            grayscale_cam = self.cam(input_tensor=input_tensor,
-                        targets=None,
-                        eigen_smooth=True,
-                        aug_smooth=True)
+                    # Visualization processing
+                    vis_start = time.time()
+                    for idx, ((face_img, rgb_frame, frame_path), grayscale_cam) in enumerate(zip(batch, grayscale_cams)):
+                        try:
+                            x, y, w, h = self.video_processor.face_coordinates[idx]
+                            height, width = face_img.shape[:2]
+                            
+                            # Get original frame name
+                            frame_name = os.path.basename(frame_path)
+                            base_name = os.path.splitext(frame_name)[0]
+                            output_name = f"{base_name}_visualized.jpg"
+                            output_path = os.path.join(self.visualized_dir, output_name)
+                            
+                            # Process and save the visualization
+                            image = cv2.rectangle(rgb_frame.copy(), (x, y), (x + w, y + h), (36,255,12), 1)
+                            
+                            rgb_img = cv2.resize(face_img, self.input_size)
+                            rgb_img = np.float32(rgb_img) / 255
+                            cam_image = show_cam_on_image(rgb_img, grayscale_cam)
+                            cam_image_resized = cv2.resize(cam_image, (width, height))
+
+                            shapes = np.zeros_like(image, np.uint8)
+                            shapes[y:y+h, x:x+w] = cam_image_resized
+                            alpha = 0.4
+                            final_image = cv2.addWeighted(image, alpha, shapes, 1 - alpha, 0)
+
+                            # Save the visualized image
+                            cv2.imwrite(output_path, final_image)
+                            results.append(self.cam.outputs)
+                            
+                        except Exception as e:
+                            print(f'{datetime.now()} - Error processing visualization for frame {idx}: {str(e)}')
+                            raise
+                    
+                    print(f'{datetime.now()} - Visualization processing took {time.time() - vis_start:.2f} seconds')
+
+                except Exception as e:
+                    print(f'{datetime.now()} - Error in batch processing: {str(e)}')
+                    raise
+
+                print(f'{datetime.now()} - Batch {batch_idx + 1} completed in {time.time() - batch_start_time:.2f} seconds')
+
+                # Clear GPU cache after processing batch
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+
+            total_time = time.time() - total_start_time
+            print(f'{datetime.now()} - Total processing completed in {total_time:.2f} seconds')
+            print(f'Average time per frame: {total_time/len(self.face_images_with_original_frames):.2f} seconds')
             
-            # Here grayscale_cam has only one image in the batch
-            grayscale_cam = grayscale_cam[0, :]
-            cam_image = show_cam_on_image(rgb_img, grayscale_cam)
-            cam_image_resized = cv2.resize(cam_image, (width, height))
-            # print(f'{datetime.now()} - Writing GradCAM Original')
-            # cv2.imwrite('cam_image_original.jpg', cam_image)
-            # print(f'{datetime.now()} - Writing GradCAM Resized Image')
-            # cv2.imwrite('cam_image_resized.jpg', cam_image_resized)
-
-            # Overlay the cam_image_resized on the original_frame on the face coords of the original_frame
-            # Select the original_frame region outside of the face so, we can overlay
-
-            # Create a mask for overlaying
-            shapes = np.zeros_like(original_frame, np.uint8)
-            # Overlay the resized CAM image onto the original frame
-            shapes[y:y+h, x:x+w] = cam_image_resized
-            alpha = 0.4
-            mask = shapes.astype(np.uint8)
-            # Overlay the cam_image_resized on the original_frame
-            original_frame = cv2.addWeighted(original_frame, alpha, mask, 1 - alpha, 0)
-
-            # Save the final visualized frame
-            print(f'{datetime.now()} - Writing Visualized Frame')
-            cv2.imwrite('visualized_frame.jpg', original_frame)
-
-            # print(self.cam.outputs)
-            results.append(self.cam.outputs)
-
-        return results
+            return results
+        except Exception as e:
+            print(f'{datetime.now()} - Fatal error in infer(): {str(e)}')
+            print(f'Error type: {type(e).__name__}')
+            import traceback
+            print(f'Traceback: {traceback.format_exc()}')
+            raise
