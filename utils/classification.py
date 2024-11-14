@@ -99,10 +99,14 @@ class Classification:
                             rgb_img = cv2.resize(face_img, self.input_size)
                             rgb_img = np.float32(rgb_img) / 255
                             cam_image = show_cam_on_image(rgb_img, grayscale_cam)
-                            cam_image_resized = cv2.resize(cam_image, (width, height))
+                            
+                            # Ensure cam_image_resized matches face dimensions exactly
+                            face_region = rgb_frame[y:y+h, x:x+w]
+                            cam_image_resized = cv2.resize(cam_image, (face_region.shape[1], face_region.shape[0]))
 
                             shapes = np.zeros_like(image, np.uint8)
                             shapes[y:y+h, x:x+w] = cam_image_resized
+
                             alpha = 0.4
                             final_image = cv2.addWeighted(image, alpha, shapes, 1 - alpha, 0)
 
@@ -110,10 +114,14 @@ class Classification:
                             cv2.imwrite(output_path, final_image)
                             results.append(self.cam.outputs)
                             
+                            print(f'{datetime.now()} - Processed frame {base_name} ({cam_image_resized.shape} -> {face_region.shape})')
+                            
                         except Exception as e:
                             print(f'{datetime.now()} - Error processing visualization for frame {idx}: {str(e)}')
+                            print(f'Face shape: {face_img.shape}, CAM resize shape: {cam_image_resized.shape if "cam_image_resized" in locals() else "not created"}')
+                            print(f'Face region bounds: y:{y}:{y+h}, x:{x}:{x+w}')
                             raise
-                    
+
                     print(f'{datetime.now()} - Visualization processing took {time.time() - vis_start:.2f} seconds')
 
                 except Exception as e:
