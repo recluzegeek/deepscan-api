@@ -17,17 +17,16 @@ class VideoProcessor:
 
     def load_original_frames(self):
         original_frames = []
-        frame_paths = sorted(glob.glob(f'{self.frames_path}*.jpg'))
-        for frame_path in frame_paths:
+        self.frame_paths = sorted(glob.glob(f'{self.frames_path}*.jpg'))  # Store frame paths
+        for frame_path in self.frame_paths:
             frame = Image.open(frame_path)
-            original_frames.append(np.array(frame))
+            original_frames.append((np.array(frame), frame_path))  # Return tuple of frame and path
         return original_frames
 
     def extract_faces(self):
         face_images = []
 
-        for idx, rgb_frame in enumerate(self.original_frames):
-
+        for idx, (rgb_frame, frame_path) in enumerate(self.original_frames):
             rgb_frame = cv2.cvtColor(rgb_frame, cv2.COLOR_BGR2RGB)
 
             # Face Detection
@@ -42,12 +41,11 @@ class VideoProcessor:
                     y = face.top()
                     w = face.right() - x
                     h = face.bottom() - y
-                    # store face coordinates for GRADCAM visualization
                     self.face_coordinates[idx] = [x, y, w, h]
 
                     print(f'{datetime.now()} - Cropping face regions of {os.path.basename(self.frames_path)} - {idx + 1}/{len(self.original_frames)}')
 
                     face_img = rgb_frame[y:y+h, x:x+w]
-                    face_images.append((face_img,rgb_frame))
+                    face_images.append((face_img, rgb_frame, frame_path))  # Include frame_path in tuple
 
         return face_images
