@@ -3,12 +3,12 @@ api:
   port: 8001
 
 laravel:
-  base_url: "http://192.168.0.172:8000"
+  base_url: "http://127.0.0.1:8000"
   inference_endpoint: "/inference/{video_id}"
 
 model:
   name: "swin_base_patch4_window7_224"
-  weights_path: "/mnt/win/deepscan-api/models/10_epochs.pth"
+  weights_path: "../models/10_epochs.pth"
   num_classes: 2
 
 paths:
