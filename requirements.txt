@@ -1,4 +1,4 @@
-aiomysql==0.2.0
+adblock @ file:///build/python-adblock/src/python-adblock-0.6.0/target/wheels/adblock-0.0.0-cp37-abi3-manylinux_2_34_x86_64.whl#sha256=3d8e2c7eace7cf73377a8e21e9f1e705d7279370bed801b8a125f6cda36f8d9d
 annotated-types==0.7.0
 anyio==4.6.2.post1
 certifi==2024.8.30
