@@ -37,15 +37,14 @@ class ModelManager:
         return model
     
     def _initialize_grad_cam(self):
-        target_layers = [self.model.layers[-1].blocks[-1].norm2]
+        target_layers = [self.model.conv_head]
         return GradCAM(
             model=self.model, 
-            target_layers=target_layers, 
-            reshape_transform=self.reshape_transform
+            target_layers=target_layers,
+            use_cuda=torch.cuda.is_available()
         )
     
     @staticmethod
     def reshape_transform(tensor, height=7, width=7):
-        result = tensor.reshape(tensor.size(0), height, width, tensor.size(2))
-        result = result.transpose(2, 3).transpose(1, 2)
-        return result
+        # EfficientNet doesn't need reshape transform
+        return tensor

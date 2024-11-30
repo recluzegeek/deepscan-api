@@ -7,8 +7,8 @@ laravel:
   inference_endpoint: "/inference/{video_id}"
 
 model:
-  name: "swin_base_patch4_window7_224"
-  weights_path: "../models/10_epochs.pth"
+  name: "tf_efficientnet_b7_ns"
+  weights_path: "/mnt/win/model-weights/efficient-net/4_epochs.pth"
   num_classes: 2
 
 paths:

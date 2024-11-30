@@ -44,7 +44,7 @@ class Classification:
 
             batch_size = 8
             face_batches = [self.face_images_with_original_frames[i:i + batch_size] 
-                        for i in range(0, len(self.face_images_with_original_frames), batch_size)]
+                            for i in range(0, len(self.face_images_with_original_frames), batch_size)]
 
             print(f'{datetime.now()} - Created {len(face_batches)} batches of size {batch_size}')
             
@@ -61,11 +61,15 @@ class Classification:
                         rgb_img = np.float32(rgb_img) / 255
                         input_tensor = preprocess_image(rgb_img, mean=self.mean, std=self.std)
                         input_tensors.append(input_tensor)
+
+                        # Save the cropped face image
+                        cropped_face_path = os.path.join(self.visualized_dir, f"cropped_face_{batch_idx}_{face_idx}.jpg")
+                        cv2.imwrite(cropped_face_path, face_img)
+
                     except Exception as e:
                         print(f'{datetime.now()} - Error processing face {face_idx}: {str(e)}')
                         raise
                 print(f'{datetime.now()} - Tensor preparation took {time.time() - tensor_prep_start:.2f} seconds')
-
                 try:
                     # Batch processing
                     gradcam_start = time.time()
@@ -75,9 +79,9 @@ class Classification:
                     
                     with torch.enable_grad():
                         grayscale_cams = self.cam(input_tensor=batch_tensor,
-                                                targets=None,
-                                                eigen_smooth=True,
-                                                aug_smooth=True)
+                                                   targets=None,
+                                                   eigen_smooth=True,
+                                                   aug_smooth=True)
                     print(f'{datetime.now()} - GradCAM processing took {time.time() - gradcam_start:.2f} seconds')
 
                     # Visualization processing
@@ -112,6 +116,11 @@ class Classification:
 
                             # Save the visualized image
                             cv2.imwrite(output_path, final_image)
+
+                            # Save the GradCAM visualized face image
+                            gradcam_face_path = os.path.join(self.visualized_dir, f"gradcam_face_{batch_idx}_{idx}.jpg")
+                            cv2.imwrite(gradcam_face_path, cam_image_resized)
+
                             results.append(self.cam.outputs)
                             
                             print(f'{datetime.now()} - Processed frame {base_name} ({cam_image_resized.shape} -> {face_region.shape})')
@@ -127,7 +136,6 @@ class Classification:
                 except Exception as e:
                     print(f'{datetime.now()} - Error in batch processing: {str(e)}')
                     raise
-
                 print(f'{datetime.now()} - Batch {batch_idx + 1} completed in {time.time() - batch_start_time:.2f} seconds')
 
                 # Clear GPU cache after processing batch
