@@ -1,6 +1,7 @@
 import torch
 from datetime import datetime
 import os
+import json
 import requests
 from typing import Tuple
 from ..utils.model_manager import ModelManager
@@ -42,6 +43,25 @@ class VideoService:
         
         return final_classification, mean_probabilities[final_classification_index].item()
     
-    def notify_completion(self, video_id: str):
+    def notify_completion(self, video_id: str, classification: str, probability: str):
         url = f"{self.config['laravel']['base_url']}{self.config['laravel']['inference_endpoint'].format(video_id=video_id)}"
-        return requests.post(url)
+        print('Sending results to ', url)
+        
+        # Prepare the JSON payload
+        payload = {
+            'classification': classification,
+            'probability': probability
+        }
+
+        print('json payload: ', payload)
+        
+        # Send the request with JSON payload
+        headers = {'Content-Type': 'application/json'}
+        try:
+            response = requests.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+            print(response)
+            return response
+        except requests.exceptions.RequestException as e:
+            print(f"Request failed: {e}")
+            return None
