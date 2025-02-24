@@ -55,7 +55,7 @@ class Classification:
                 
                 # Process each face in the batch
                 tensor_prep_start = time.time()
-                for face_idx, (face_img, rgb_frame, frame_path) in enumerate(batch):
+                for face_idx, (face_img, rgb_frame, frame_path, frame_idx) in enumerate(batch):
                     try:
                         rgb_img = cv2.resize(face_img, self.input_size)
                         rgb_img = np.float32(rgb_img) / 255
@@ -82,15 +82,15 @@ class Classification:
 
                     # Visualization processing
                     vis_start = time.time()
-                    for idx, ((face_img, rgb_frame, frame_path), grayscale_cam) in enumerate(zip(batch, grayscale_cams)):
+                    for idx, ((face_img, rgb_frame, frame_path, frame_idx), grayscale_cam) in enumerate(zip(batch, grayscale_cams)):
                         try:
-                            x, y, w, h = self.video_processor.face_coordinates[idx]
+                            x, y, w, h = self.video_processor.face_coordinates[frame_idx]
                             height, width = face_img.shape[:2]
                             
                             # Get original frame name
                             frame_name = os.path.basename(frame_path)
                             base_name = os.path.splitext(frame_name)[0]
-                            output_name = f"{base_name}_visualized.jpg"
+                            output_name = f"{base_name}_visualized_{frame_idx}.jpg"
                             output_path = os.path.join(self.visualized_dir, output_name)
                             
                             # Process and save the visualization

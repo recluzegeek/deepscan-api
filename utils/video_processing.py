@@ -34,7 +34,7 @@ class VideoProcessor:
             faces = self.detector(rgb_frame)
 
             if len(faces) == 0:
-                print(f'No faces detected in frame {idx}.')
+                print(f'{datetime.now()} - No faces detected in frame {idx}.')
             else:
                 for face in faces:
                     x = face.left()
@@ -46,6 +46,6 @@ class VideoProcessor:
                     print(f'{datetime.now()} - Cropping face regions of {os.path.basename(self.frames_path)} - {idx + 1}/{len(self.original_frames)}')
 
                     face_img = rgb_frame[y:y+h, x:x+w]
-                    face_images.append((face_img, rgb_frame, frame_path))  # Include frame_path in tuple
+                    face_images.append((face_img, rgb_frame, frame_path, idx))  # Include frame index in tuple
 
         return face_images

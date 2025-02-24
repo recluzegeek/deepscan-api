@@ -13,7 +13,7 @@ class VideoModel(BaseModel):
 @router.post("/upload")
 async def upload_video(data: VideoModel):
     try:
-        
+
         classification, probability = video_service.process_video(data.frames_path)
         
         print('...classification done, now sending back to laravel endpoint...')
