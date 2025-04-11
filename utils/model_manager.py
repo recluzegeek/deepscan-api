@@ -18,8 +18,9 @@ class ModelManager:
     def _initialize(self):
         self.config = self._load_config()
 
-        # 💡 Ensure models directory exists and set weights_download_path
-        models_dir = os.path.join(os.path.dirname(__file__), "..", "models")
+        # 🔧 Build absolute path: from utils → ../.. → root → models
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+        models_dir = os.path.join(project_root, "models")
         os.makedirs(models_dir, exist_ok=True)
 
         if not self.config['model']['weights_download_path']:
