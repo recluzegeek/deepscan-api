@@ -8,8 +8,10 @@ laravel:
 
 model:
   name: "swin_base_patch4_window7_224"
-  weights_path: "/mnt/win/deepscan-api/models/10_epochs.pth"
+  # download from release page
+  weights_remote_path: "https://github.com/recluzegeek/deepscan-api/releases/download/v0.1/swin_model.pth"
+  weights_download_path: ""
   num_classes: 2
 
 paths:
-  frames_base_path: "/mnt/win/deepscan-web/storage/app/frames"
+  frames_base_path: "/home/recluzegeek/deepscan-web/storage/app/frames"
