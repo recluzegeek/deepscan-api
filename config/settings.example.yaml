@@ -1,9 +1,11 @@
-api:
-  host: "0.0.0.0"
-  port: 8001
+minio:
+  endpoint:
+  access_key:
+  secret_key:
+  secure: false
 
 laravel:
-  base_url: "http://localhost:8000"
+  base_url:
   inference_endpoint: "/api/inference/{video_id}"
 
 model:
@@ -14,4 +16,4 @@ model:
   num_classes: 2
 
 paths:
-  frames_base_path: "/home/recluzegeek/deepscan-web/storage/app/frames"
+  frames_base_path:
