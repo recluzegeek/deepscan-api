@@ -28,7 +28,7 @@ git clone https://github.com/recluzegeek/deepscan-api.git
 cd deepscan-api
 ```
 
-1. Create and activate a virtual environment:
+2. Create and activate a virtual environment:
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
@@ -40,16 +40,16 @@ OR for windows
 python -m venv .venv && .\venv\Scripts\activate
 ```
 
-1. Install dependencies:
+3. Install dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-1. Configure settings:
+4. Configure settings:
 
 ```bash
-`cp config/settings.example.yaml config/settings.yaml
+cp config/settings.example.yaml config/settings.yaml
 ````
 
 Edit the settings.yaml file to configure the API host, port, and other parameters.
@@ -91,7 +91,7 @@ Edit the settings.yaml file to configure the API host, port, and other parameter
 fastapi run main.py --reload --host 0.0.0.0 --port 9010
 ```
 
-1. API Endpoints:
+2. API Endpoints:
 
 - POST `/upload`: Process video frames for deepfake detection
 
