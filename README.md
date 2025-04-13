@@ -6,8 +6,7 @@ DeepScan API is a FastAPI-based service that processes videos to detect deepfake
 
 - Deep learning-based deepfake detection
 - GradCAM visualization for model interpretability
-- Efficient frame processing and storage
-- REST API endpoints for video processing
+- Efficient frame processing and MinIO storage
 - Integration with Laravel backend
 - Configurable settings via YAML
 
@@ -15,65 +14,73 @@ DeepScan API is a FastAPI-based service that processes videos to detect deepfake
 
 - Python 3.8+
 - CUDA-capable GPU (recommended)
-- Storage space for processed frames
 
-## Installation
+## Vagrant Box
+
+Vagrantfile for this repository can be found out at [recluzegeek/deepscan-web](https://github.com/recluzegeek/deepscan-web), under `vagrant/fastapi.sh`. The script is used for provisioning the ubuntu jammy configured to host this API, in a multivm vagrant environment, but it can be configured according to your needs.
+
+## Local Installation
 
 1. Clone the repository:
 
 ```bash
 git clone https://github.com/recluzegeek/deepscan-api.git
-
 cd deepscan-api
 ```
 
-2. Create and activate a virtual environment:
+1. Create and activate a virtual environment:
 
 ```bash
-python -m venv deepscan-api-venv
-source deepscan-api-venv/bin/activate
+python -m venv .venv && source .venv/bin/activate
 ```
 
-OR
+OR for windows
 
 ```cmd
-.\deepscan-api-venv\Scripts\activate
+.\venv\Scripts\activate
 ```
 
-3. Install dependencies:
+1. Install dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-4. Configure settings:
+1. Configure settings:
 
 ```bash
-cp config/settings.yaml.example config/settings.yaml
-```
+`cp config/settings.example.yaml config/settings.yaml
+````
 
 Edit the settings.yaml file to configure the API host, port, and other parameters.
 
 ## Project Structure
 
 ```text
-deepscan-api/
-├── config/
-│ ├── settings.example.yaml
-│ └── settings.yaml
-├── utils/
-│ ├── model_manager.py
-│ ├── database.py
-│ ├── models.py
-│ └── classification.py
-├── services/
-│ └── video_service.py
-├── routers/
-│ └── video_router.py
-├── models/
-│ └── weights/
-├── requirements.txt
-└── README.md
+.
+├── config
+│   ├── settings.example.yaml
+│   └── settings.yaml
+├── models
+│   ├── __init__.py
+│   └── swin_model.pth
+├── routers
+│   ├── __init.py__
+│   └── video_router.py
+├── services
+│   ├── frame_services.py
+│   └── video_service.py
+├── temp-frames
+├── utils
+│   ├── classification.py
+│   ├── __init.py__
+│   ├── model_manager.py
+│   └── video_processing.py
+├── Dockerfile
+├── __init__.py
+├── main.py
+├── README.md
+└── requirements.txt
 ```
 
 ## Usage
@@ -81,10 +88,10 @@ deepscan-api/
 1. Run the API:
 
 ```python
-fastapi run main.py --reload --host 0.0.0.0 --port 8000
+fastapi run main.py --reload --host 0.0.0.0 --port 9010
 ```
 
-2. API Endpoints:
+1. API Endpoints:
 
 - POST `/upload`: Process video frames for deepfake detection
 
@@ -92,7 +99,3 @@ fastapi run main.py --reload --host 0.0.0.0 --port 8000
 
 - Swagger UI: `http://localhost:8000/docs`
 - ReDoc: `http://localhost:8000/redoc`
-
-## License
-
-This project is licensed under the MIT License.

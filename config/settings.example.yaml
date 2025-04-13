@@ -1,11 +1,14 @@
 minio:
-  endpoint:
-  access_key:
-  secret_key:
+  endpoint: ""
+  access_key: ""
+  secret_key: ""
+  region: "us-east-1"
   secure: false
+  frames_bucket: ""
+  gradcam_frames_bucket: ""
 
 laravel:
-  base_url:
+  base_url: ""
   inference_endpoint: "/api/inference/{video_id}"
 
 model:
@@ -16,4 +19,4 @@ model:
   num_classes: 2
 
 paths:
-  frames_base_path:
+  frames_path: "../temp-frames/"
