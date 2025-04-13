@@ -14,9 +14,13 @@ class Classification:
         self.frames_path = frames_path
         self.cam = cam
         self.video_processor = VideoProcessor(self.frames_path)
-        
-        # Create visualized directory if it doesn't exist
-        self.visualized_dir = os.path.join(os.path.dirname(self.frames_path), 'visualized')
+        self.config = self._load_config()
+        self.visualized_dir = os.path.abspath(
+            os.path.join(
+                os.path.dirname(__file__),
+                self.config['paths']['gradcam_frames_path']
+            )
+        )
         os.makedirs(self.visualized_dir, exist_ok=True)
         
         print(f'{datetime.now()} - Extracting faces...')
@@ -34,6 +38,12 @@ class Classification:
         print(f'{datetime.now()} - Creating Classification Instance for {os.path.basename(self.frames_path)}')
         print(f'Using device: {self.device}')
         print(f'Initialization completed in {time.time() - start_time:.2f} seconds')
+
+    def _load_config(self):
+        # Load config from YAML file
+        import yaml
+        with open("config/settings.yaml") as f:
+            return yaml.safe_load(f)
 
     def infer(self):
         try:

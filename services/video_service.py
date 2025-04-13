@@ -18,11 +18,14 @@ class VideoService:
         # Download frames from MinIO
         self.frames.download_frames(frames_path)
         # Process frames
-        full_frames_path = os.path.join(
-            os.path.dirname(__file__),
-            self.config['paths']['frames_path'], 
-            frames_path
+        full_frames_path = os.path.abspath(
+            os.path.join(
+                os.path.dirname(__file__),
+                self.config['paths']['frames_path'], 
+                frames_path
+            )
         )
+
         
         print(f'{datetime.now()} - Processing frames at: {full_frames_path}')
         
