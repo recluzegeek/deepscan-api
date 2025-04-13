@@ -1,4 +1,5 @@
 import os
+import io
 from minio import Minio
 from minio.error import S3Error
 from datetime import datetime
@@ -31,13 +32,27 @@ class MinioClient:
             print(f"Error listing objects: {err}")
             return []
 
-    def fget_object(self, object_name, file_path, bucket_name = None):
+    def get_object(self, object_name, file_path, bucket_name = None):
         try:
             if bucket_name is None:
                 bucket_name = self.frames_bucket
             self.client.fget_object(bucket_name, object_name, file_path)
         except S3Error as err:
             print(f"Error downloading object: {err}")
+
+    def put_object(self, bucket_name, object_name, data_stream, length, content_type="application/octet-stream"):
+        try:
+            self.client.put_object(
+                bucket_name=bucket_name,
+                object_name=object_name,
+                data=data_stream,
+                length=length,
+                content_type=content_type
+            )
+            print(f"Uploaded {object_name} to {bucket_name}")
+        except S3Error as err:
+            print(f"Error uploading object {object_name}: {err}")
+
 
 class Frames:
     def __init__(self):
@@ -48,5 +63,18 @@ class Frames:
         os.makedirs(download_path, exist_ok=True)
         objects = self.client.list_objects(prefix=frames_pattern)
         for obj in objects:
-            self.client.fget_object(obj.object_name, os.path.join(download_path, obj.object_name))
+            self.client.get_object(obj.object_name, os.path.join(download_path, obj.object_name))
         print(f"{datetime.now()} - Downloaded frames matching pattern: {frames_pattern}")
+
+    def upload_image_stream(self, image_stream: io.BytesIO, object_name: str, bucket_name: str = None, content_type: str = "image/jpeg"):
+        image_bytes = image_stream.getbuffer()
+        if bucket_name is None:
+            bucket_name = self.client.gradcam_frames_bucket
+        self.client.put_object(
+            bucket_name=bucket_name,
+            object_name=object_name,
+            data_stream=image_stream,
+            length=len(image_bytes),
+            content_type=content_type
+        )
+        print(f"{datetime.now()} - Uploaded image stream to {bucket_name}/{object_name}")

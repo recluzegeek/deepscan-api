@@ -18,6 +18,7 @@ async def upload_video(data: VideoModel):
         
         print('...classification done, now sending back to laravel endpoint...')
         response = video_service.notify_completion(data.video_id, classification, probability)
+        # deleting the frames locally
         print(response.json(), response.status_code)
 
         return {

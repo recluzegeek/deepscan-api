@@ -1,9 +1,9 @@
-import torch
-from datetime import datetime
 import os
 import json
+import torch
 import requests
 from typing import Tuple
+from datetime import datetime
 from .frame_services import Frames
 from ..utils.model_manager import ModelManager
 from ..utils.classification import Classification
@@ -12,26 +12,32 @@ class VideoService:
     def __init__(self):
         self.model_manager = ModelManager()
         self.frames = Frames()
-        self.config = self.model_manager._load_config()
-    
-    def process_video(self, frames_path: str) -> Tuple[str, float]:
-        # Download frames from MinIO
-        self.frames.download_frames(frames_path)
-        # Process frames
-        full_frames_path = os.path.abspath(
+        self.frames_abspath = os.path.abspath(
             os.path.join(
                 os.path.dirname(__file__),
                 self.config['paths']['frames_path'], 
                 frames_path
             )
         )
+        self.config = self.model_manager._load_config()
+    
+    def process_video(self, frames_path: str) -> Tuple[str, float]:
+        # Download frames from MinIO
+        self.frames.download_frames(frames_path)
+        # Process frames
+        # full_frames_path = os.path.abspath(
+        #     os.path.join(
+        #         os.path.dirname(__file__),
+        #         self.config['paths']['frames_path'], 
+        #         frames_path
+        #     )
+        # )
 
-        
-        print(f'{datetime.now()} - Processing frames at: {full_frames_path}')
+        print(f'{datetime.now()} - Processing frames at: {self.frames_abspath}')
         
         classifier = Classification(
             self.model_manager.model, 
-            frames_path=full_frames_path, 
+            frames_path=self.frames_abspath, 
             cam=self.model_manager.cam
         )
         
@@ -55,7 +61,7 @@ class VideoService:
     def notify_completion(self, video_id: str, classification: str, probability: str):
         url = f"{self.config['laravel']['base_url']}{self.config['laravel']['inference_endpoint'].format(video_id=video_id)}"
         print('Sending results to ', url)
-        
+
         # Prepare the JSON payload
         payload = {
             'classification': classification,

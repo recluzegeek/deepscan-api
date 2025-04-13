@@ -1,11 +1,13 @@
 import os
+import io
 import cv2
-import numpy as np
+import time
 import torch
+import numpy as np
 from datetime import datetime
 from .video_processing import VideoProcessor
+from ..services.frame_services import Frames
 from pytorch_grad_cam.utils.image import show_cam_on_image, preprocess_image
-import time
 
 class Classification:
     def __init__(self, model, frames_path, cam):
@@ -15,13 +17,14 @@ class Classification:
         self.cam = cam
         self.video_processor = VideoProcessor(self.frames_path)
         self.config = self._load_config()
-        self.visualized_dir = os.path.abspath(
-            os.path.join(
-                os.path.dirname(__file__),
-                self.config['paths']['gradcam_frames_path']
-            )
-        )
-        os.makedirs(self.visualized_dir, exist_ok=True)
+        self.client = Frames()
+        # self.visualized_dir = os.path.abspath(
+        #     os.path.join(
+        #         os.path.dirname(__file__),
+        #         self.config['paths']['gradcam_frames_path']
+        #     )
+        # )
+        # os.makedirs(self.visualized_dir, exist_ok=True)
         
         print(f'{datetime.now()} - Extracting faces...')
         self.face_images_with_original_frames = self.video_processor.extract_faces()
@@ -101,7 +104,7 @@ class Classification:
                             frame_name = os.path.basename(frame_path)
                             base_name = os.path.splitext(frame_name)[0]
                             output_name = f"{base_name}_visualized_{frame_idx}.jpg"
-                            output_path = os.path.join(self.visualized_dir, output_name)
+                            # output_path = os.path.join(self.visualized_dir, output_name)
                             
                             # Process and save the visualization
                             image = cv2.rectangle(rgb_frame.copy(), (x, y), (x + w, y + h), (36,255,12), 1)
@@ -120,8 +123,21 @@ class Classification:
                             alpha = 0.4
                             final_image = cv2.addWeighted(image, alpha, shapes, 1 - alpha, 0)
 
-                            # Save the visualized image
-                            cv2.imwrite(output_path, final_image)
+                            # Save the visualized image to MinIO
+                            success, encoded_image = cv2.imencode('.jpg', final_image)
+
+                            if success:
+                                image_bytes = encoded_image.tobytes()
+                                image_stream = io.BytesIO(image_bytes)
+
+                                # Upload to MinIO
+                                self.client.upload_image_stream(
+                                    image_stream=image_stream,
+                                    object_name=output_name,
+                                )
+                            else:
+                                print("Image encoding failed.")
+
                             results.append(self.cam.outputs)
                             
                             print(f'{datetime.now()} - Processed frame {base_name} ({cam_image_resized.shape} -> {face_region.shape})')
