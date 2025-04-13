@@ -4,17 +4,23 @@ import os
 import json
 import requests
 from typing import Tuple
+from .frame_services import Frames
 from ..utils.model_manager import ModelManager
 from ..utils.classification import Classification
 
 class VideoService:
     def __init__(self):
         self.model_manager = ModelManager()
+        self.frames = Frames()
         self.config = self.model_manager._load_config()
     
     def process_video(self, frames_path: str) -> Tuple[str, float]:
+        # Download frames from MinIO
+        self.frames.download_frames(frames_path)
+        # Process frames
         full_frames_path = os.path.join(
-            self.config['paths']['frames_base_path'], 
+            os.path.dirname(__file__),
+            self.config['paths']['frames_path'], 
             frames_path
         )
         

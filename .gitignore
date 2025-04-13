@@ -6,3 +6,6 @@ models
 opencv_basics.py
 visualized_frames/
 deepscan-venv
+config/settings.yaml
+temp-frames/
+temp-gradcam-frames/

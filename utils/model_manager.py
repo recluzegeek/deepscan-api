@@ -67,8 +67,6 @@ class ModelManager:
         else:
             print(f"📁 Weights already exist at {local_path}")
 
-
-    
     def _load_model(self):
         model = timm.create_model(
             self.config['model']['name'], 
