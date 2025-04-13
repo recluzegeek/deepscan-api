@@ -12,27 +12,19 @@ class VideoService:
     def __init__(self):
         self.model_manager = ModelManager()
         self.frames = Frames()
+        self.config = self.model_manager._load_config()
         self.frames_abspath = os.path.abspath(
             os.path.join(
                 os.path.dirname(__file__),
-                self.config['paths']['frames_path'], 
-                frames_path
+                self.config['paths']['frames_path']
             )
         )
-        self.config = self.model_manager._load_config()
-    
+
+
     def process_video(self, frames_path: str) -> Tuple[str, float]:
         # Download frames from MinIO
+        self.frames_abspath = os.path.join(self.frames_abspath, frames_path)
         self.frames.download_frames(frames_path)
-        # Process frames
-        # full_frames_path = os.path.abspath(
-        #     os.path.join(
-        #         os.path.dirname(__file__),
-        #         self.config['paths']['frames_path'], 
-        #         frames_path
-        #     )
-        # )
-
         print(f'{datetime.now()} - Processing frames at: {self.frames_abspath}')
         
         classifier = Classification(
@@ -60,7 +52,10 @@ class VideoService:
     
     def notify_completion(self, video_id: str, classification: str, probability: str):
         url = f"{self.config['laravel']['base_url']}{self.config['laravel']['inference_endpoint'].format(video_id=video_id)}"
-        print('Sending results to ', url)
+        # delete the frames locally after processing
+        self.frames.delete_frames()
+
+        print(f'{datetime.now()} - Sending results to ', url)
 
         # Prepare the JSON payload
         payload = {
@@ -68,7 +63,7 @@ class VideoService:
             'probability': probability
         }
 
-        print('json payload: ', payload)
+        print(f'{datetime.now()} - JSON Payload: ', payload)
         
         # Send the request with JSON payload
         headers = {'Content-Type': 'application/json'}

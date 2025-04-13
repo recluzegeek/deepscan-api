@@ -18,14 +18,7 @@ class Classification:
         self.video_processor = VideoProcessor(self.frames_path)
         self.config = self._load_config()
         self.client = Frames()
-        # self.visualized_dir = os.path.abspath(
-        #     os.path.join(
-        #         os.path.dirname(__file__),
-        #         self.config['paths']['gradcam_frames_path']
-        #     )
-        # )
-        # os.makedirs(self.visualized_dir, exist_ok=True)
-        
+
         print(f'{datetime.now()} - Extracting faces...')
         self.face_images_with_original_frames = self.video_processor.extract_faces()
         print(f'{datetime.now()} - Face extraction completed in {time.time() - start_time:.2f} seconds')
